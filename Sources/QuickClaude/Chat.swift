@@ -4,6 +4,7 @@ struct Message: Identifiable {
     let id = UUID()
     let isUser: Bool
     var text: String
+    var attachments: [Attachment] = []
 }
 
 @MainActor
@@ -11,6 +12,7 @@ final class Chat: ObservableObject {
     @Published private(set) var messages: [Message] = []
     @Published private(set) var sessionId: String?
     @Published private(set) var isRunning = false
+    @Published var pending: [Attachment] = []
     @Published var focusToken = 0
 
     private var process: Process?
@@ -48,9 +50,17 @@ final class Chat: ObservableObject {
         return nil
     }
 
+    func paste(from pasteboard: NSPasteboard) -> Bool {
+        let attachments = Attachment.read(from: pasteboard)
+        pending += attachments
+        return !attachments.isEmpty
+    }
+
     func send(_ text: String, model: String, effort: String) {
         guard !isRunning else { return }
-        messages.append(Message(isUser: true, text: text))
+        let attachments = pending
+        pending = []
+        messages.append(Message(isUser: true, text: text, attachments: attachments))
         messages.append(Message(isUser: false, text: ""))
 
         guard let claude = Self.claudePath else {
@@ -59,7 +69,7 @@ final class Chat: ObservableObject {
         }
 
         var args = [
-            "-p", text,
+            "-p", "--input-format", "stream-json",
             "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             "--model", model, "--effort", effort,
             "--tools", "WebSearch,WebFetch", "--allowedTools", "WebSearch,WebFetch",
@@ -70,11 +80,13 @@ final class Chat: ObservableObject {
 
         try? FileManager.default.createDirectory(at: Self.workDir, withIntermediateDirectories: true)
         let process = Process()
+        let input = Pipe()
         let out = Pipe()
         let err = Pipe()
         process.executableURL = URL(fileURLWithPath: claude)
         process.arguments = args
         process.currentDirectoryURL = Self.workDir
+        process.standardInput = input
         process.standardOutput = out
         process.standardError = err
 
@@ -86,6 +98,7 @@ final class Chat: ObservableObject {
         }
         self.process = process
         isRunning = true
+        write(text, attachments, to: input.fileHandleForWriting)
 
         Task {
             var gotResult = false
@@ -110,6 +123,7 @@ final class Chat: ObservableObject {
     func reset() {
         stop()
         messages = []
+        pending = []
         sessionId = nil
         focusToken += 1
     }
@@ -117,6 +131,19 @@ final class Chat: ObservableObject {
     func openInClaude() {
         guard let sessionId, let url = URL(string: "claude://resume?session=\(sessionId)") else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    private func write(_ text: String, _ attachments: [Attachment], to handle: FileHandle) {
+        var content: [[String: Any]] = attachments.map {
+            ["type": "image", "source": ["type": "base64", "media_type": $0.mediaType, "data": $0.data.base64EncodedString()]]
+        }
+        if !text.isEmpty { content.append(["type": "text", "text": text]) }
+        let message: [String: Any] = ["type": "user", "message": ["role": "user", "content": content]]
+        guard let line = try? JSONSerialization.data(withJSONObject: message) else { return }
+        DispatchQueue.global().async {
+            try? handle.write(contentsOf: line + Data("\n".utf8))
+            try? handle.close()
+        }
     }
 
     private func handle(_ line: String) -> Bool {

@@ -52,7 +52,8 @@ struct ChatView: View {
         .pickerStyle(.menu)
         .buttonStyle(.borderless)
         .foregroundStyle(Theme.secondary)
-        .padding(.horizontal, 12)
+        .padding(.leading, 30)
+        .padding(.trailing, 12)
         .padding(.top, 10)
         .padding(.bottom, 8)
     }
@@ -80,6 +81,40 @@ struct ChatView: View {
     }
 
     private var inputBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !chat.pending.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(chat.pending) { attachment in
+                            Thumbnail(attachment: attachment)
+                                .overlay(alignment: .topTrailing) {
+                                    Button {
+                                        chat.pending.removeAll { $0.id == attachment.id }
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(.white, .black.opacity(0.6))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(3)
+                                }
+                        }
+                    }
+                }
+            }
+            inputRow
+        }
+        .padding(10)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.border))
+        .padding(12)
+    }
+
+    private var canSend: Bool {
+        !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !chat.pending.isEmpty
+    }
+
+    private var inputRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField("Message Claude", text: $input, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -100,17 +135,13 @@ struct ChatView: View {
                     .foregroundStyle(Theme.accent)
             }
             .buttonStyle(.plain)
-            .disabled(!chat.isRunning && input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!chat.isRunning && !canSend)
         }
-        .padding(10)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.border))
-        .padding(12)
     }
 
     private func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !chat.isRunning else { return }
+        guard canSend, !chat.isRunning else { return }
         input = ""
         chat.send(text, model: model, effort: effort)
     }
@@ -122,15 +153,23 @@ private struct MessageRow: View {
 
     var body: some View {
         if message.isUser {
-            HStack {
-                Spacer(minLength: 40)
-                Text(message.text)
-                    .foregroundStyle(Theme.text)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Theme.userBubble, in: RoundedRectangle(cornerRadius: 12))
+            VStack(alignment: .trailing, spacing: 6) {
+                if !message.attachments.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(message.attachments) { Thumbnail(attachment: $0, size: 96) }
+                    }
+                }
+                if !message.text.isEmpty {
+                    Text(message.text)
+                        .foregroundStyle(Theme.text)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Theme.userBubble, in: RoundedRectangle(cornerRadius: 12))
+                }
             }
+            .padding(.leading, 40)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         } else if message.text.isEmpty && isPending {
             ProgressView().controlSize(.small)
         } else {
@@ -140,5 +179,19 @@ private struct MessageRow: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+private struct Thumbnail: View {
+    let attachment: Attachment
+    var size: CGFloat = 56
+
+    var body: some View {
+        Image(nsImage: attachment.thumbnail)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border))
     }
 }

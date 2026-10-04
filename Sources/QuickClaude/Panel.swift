@@ -13,7 +13,7 @@ final class ChatPanel: NSPanel, NSWindowDelegate {
         )
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
-        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+        for button in [NSWindow.ButtonType.miniaturizeButton, .zoomButton] {
             standardWindowButton(button)?.isHidden = true
         }
         isMovableByWindowBackground = true
@@ -50,6 +50,20 @@ final class ChatPanel: NSPanel, NSWindowDelegate {
     func hide() {
         orderOut(nil)
         if NSApp.isActive { NSApp.hide(nil) }
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers == "v",
+           chat.paste(from: .general) {
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        hide()
+        return false
     }
 
     override func cancelOperation(_ sender: Any?) {
