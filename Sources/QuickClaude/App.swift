@@ -44,7 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func makeStatusItem() -> NSStatusItem {
+        UserDefaults.standard.register(defaults: ["NSStatusItem Preferred Position QuickClaude": 300])
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.autosaveName = "QuickClaude"
         item.button?.image = NSImage(systemSymbolName: "sparkle", accessibilityDescription: "QuickClaude")
         let menu = NSMenu()
         openItem.target = self
