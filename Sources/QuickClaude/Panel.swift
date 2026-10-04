@@ -20,6 +20,9 @@ final class ChatPanel: NSPanel, NSWindowDelegate {
         level = .floating
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         minSize = NSSize(width: 340, height: 300)
+        if let saved = UserDefaults.standard.string(forKey: "panelSize") {
+            setContentSize(NSSizeFromString(saved))
+        }
         delegate = self
         contentView = NSHostingView(rootView: ChatView(chat: chat) { [weak self] in self?.hide() })
     }
@@ -51,6 +54,10 @@ final class ChatPanel: NSPanel, NSWindowDelegate {
 
     override func cancelOperation(_ sender: Any?) {
         hide()
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        UserDefaults.standard.set(NSStringFromSize(contentRect(forFrameRect: frame).size), forKey: "panelSize")
     }
 
     func windowDidResignKey(_ notification: Notification) {
