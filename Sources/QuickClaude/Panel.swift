@@ -13,7 +13,7 @@ final class ChatPanel: NSPanel, NSWindowDelegate {
         )
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
-        for button in [NSWindow.ButtonType.miniaturizeButton, .zoomButton] {
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
             standardWindowButton(button)?.isHidden = true
         }
         isMovableByWindowBackground = true

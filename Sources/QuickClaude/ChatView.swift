@@ -27,6 +27,8 @@ struct ChatView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
+            CloseButton(action: hide)
+                .padding(.trailing, 6)
             Picker("Model", selection: $model) {
                 ForEach(Self.models, id: \.1) { Text($0.0).tag($0.1) }
             }
@@ -52,8 +54,7 @@ struct ChatView: View {
         .pickerStyle(.menu)
         .buttonStyle(.borderless)
         .foregroundStyle(Theme.secondary)
-        .padding(.leading, 30)
-        .padding(.trailing, 12)
+        .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 8)
     }
@@ -193,5 +194,29 @@ private struct Thumbnail: View {
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border))
+    }
+}
+
+private struct CloseButton: View {
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Circle()
+                .fill(Color(red: 1, green: 0.373, blue: 0.341))
+                .overlay(Circle().stroke(.black.opacity(0.15), lineWidth: 0.5))
+                .overlay {
+                    if isHovering {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 7, weight: .heavy))
+                            .foregroundStyle(.black.opacity(0.55))
+                    }
+                }
+                .frame(width: 12, height: 12)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .help("Close (Esc)")
     }
 }
